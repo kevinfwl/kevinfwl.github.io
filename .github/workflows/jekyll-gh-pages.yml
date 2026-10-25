@@ -49,8 +49,12 @@ jobs:
           test -s _site/index.html
           test -s _site/assets/css/index.css
           test -s _site/assets/js/graphUI.js
-          test -s _site/assets/Resume.pdf
+          test ! -f _site/assets/Resume.pdf
+          test ! -f _site/resume.html
+          test ! -d _site/resume
           test ! -f _site/CNAME
+          ! grep -q 'id="alg-description"' _site/index.html
+          grep -q 'based in Seattle' _site/index.html
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
   deploy:
