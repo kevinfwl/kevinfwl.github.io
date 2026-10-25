@@ -1,0 +1,68 @@
+name: Publish personal website
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out website source
+        uses: actions/checkout@v4
+        with:
+          repository: kevinfwl/personal-site
+          ref: gh-pages
+          persist-credentials: false
+      - name: Configure the github.io address
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          Path("CNAME").unlink(missing_ok=True)
+          config = Path("_config.yml")
+          text = config.read_text()
+          text = re.sub(r'^url:.*$', 'url: "https://kevinfwl.github.io"', text, flags=re.M)
+          text = re.sub(r'^#? ?baseurl:.*$', 'baseurl: ""', text, flags=re.M)
+          config.write_text(text)
+          head = Path("_includes/head.html")
+          head.write_text("\n".join(line for line in head.read_text().split("\n") if '"/assets/css/resume.css"' not in line))
+          home = Path("_layouts/home.html")
+          home.write_text(re.sub(r'^---\nlayout: home\n---\n', '', home.read_text()))
+      - name: Set up Pages
+        uses: actions/configure-pages@v5
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+      - name: Verify published files
+        run: |
+          test -s _site/index.html
+          test -s _site/assets/css/index.css
+          test -s _site/assets/js/graphUI.js
+          test -s _site/assets/Resume.pdf
+          test ! -f _site/CNAME
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
